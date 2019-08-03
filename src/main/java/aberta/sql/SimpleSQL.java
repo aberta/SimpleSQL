@@ -250,13 +250,13 @@ public class SimpleSQL {
                 } catch (SQLException ex) {
                     throw new RuntimeException(ex);
                 } finally {
-                    close(rs);
+                    close((ResultSet)rs);
                 }
             } finally {
-                close(ps);
+                close((Statement)ps);
             }
         } finally {
-            close(c);
+            close((Connection)c);
         }
     }
 
