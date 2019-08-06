@@ -1,14 +1,15 @@
 # SimpleSQL
 
-SimpleSQL is a *very* simple Java library for fetching data from a database using JDBC.  The motivation for creating SimpleSQL was to be able to easily fetch data within a Groovy script in [Dell Boomi](https://boomi.com/) without having to deal with JDBC directly.  The standard Boomi [Database Connector](http://help.boomi.com/atomsphere/GUID-A0371711-C68D-4DE0-86E0-3AB54165DABE.html)) does not allow the SQL to be built dynamically.
+SimpleSQL is a *very* simple Java library for fetching data from a database using JDBC.  The motivation for creating SimpleSQL was to be able to easily fetch data within a Groovy script in [Dell Boomi](https://boomi.com/) without having to deal with JDBC directly.  The standard Boomi [Database Connector](http://help.boomi.com/atomsphere/GUID-A0371711-C68D-4DE0-86E0-3AB54165DABE.html) does not allow the SQL to be built dynamically.
 
 ## Usage
 
-There are three variations on fetching data from the databse:
+There are four variations on fetching data from the database:
 
 * `queryFirst` - fetching a single row
 * `queryAsList` - fetching all rows in a single list
 * `query` - fetching a row at a time and processing that row before moving on to the next.  Use this to have the most control over the fetching and processing of records.
+* `fetchForUpdate` - fetches a single row and, with the given `RowUpdater` it updates the fetched row
 
 All methods require, as their first parameter, a `ConnectionProperties` object that contains the settings required to be able to connect to the database.  There are two methods that will create such an object:
 
@@ -127,7 +128,40 @@ def rows = query(connectionProperties, """
 ```
 The example above outputs one Document for each row returned.
 
-### Mitigating against SQL-Injection Attacks
+### Fetching and Updating a Row
+
+Use the `fetchForUpdate` method to fetch a single row (the first row retrieved from the database for the given SQL) and then update it.
+The method returns the updated row.
+
+```Groovy
+import static com.boomi.execution.ExecutionUtil.*
+import static groovy.json.JsonOutput.*
+import static aberta.sql.SimpleSQL.*
+
+def connectionProperties = ... 
+def owner = ...
+def queryParameters = ['UK' /* country code */]
+
+def updatedRow = query(connectionProperties, """
+
+    select ID from NEXT_NUMBERS where NUM_TYPE = 'interface'
+    for update
+
+""", queryParameters) { row ->  // manipulate the fetched record...
+    row.ID++                    // increment the ID
+    return true                 // return true to confirm the update
+}
+```
+### `for update`
+
+**NOTE:** despite its name, `fetchForUpdate` will **not** append the text `for update` on the end of the SQL for you
+or even do any explicit row/table locking.  Add `for update` to your SQL to force the database to do that locking.
+
+Adding `for update` is not strictly necessary (i.e. the update will still happen) but it is **required** if you want
+to ensure that multiple, concurrent clients read a unique value that is then updated.  The example above is such
+a use case: we want to guarantee that each client reading from the `NEXT_NUMBERS` table gets a unique `ID`.
+
+## Mitigating against SQL-Injection Attacks
 
 The library uses [`PreparedStatement`](https://en.wikipedia.org/wiki/Prepared_statement) to allow the use of `?` placeholders
 for dynamic values (e.g. `where updateDate >= ?`).  This is a highly recommended 

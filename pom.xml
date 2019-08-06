@@ -24,7 +24,7 @@
     
     <groupId>aberta</groupId>
     <artifactId>simplesql</artifactId>
-    <version>1.03</version>
+    <version>1.04</version>
 
     <name>SimpleSQL</name>
     <url>https://github.com/aberta/SimpleSQL</url>
@@ -60,7 +60,7 @@
                     </configuration>
                     <executions>
                         <execution>
-                            <id>checkJava1_8</id>
+                            <id>checkJava1_7</id>
                             <phase>test</phase>
                             <goals>
                                 <goal>check</goal>
