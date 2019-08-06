@@ -174,3 +174,5 @@ acceptable values.
 To be conveniently incorporated into a Boomi process SimpleSQL is written in [one source file](src/main/java/aberta/sql/SimpleSQL.java).  You can simple cut-and-paste the source code into a *Custom Scripting* step in a *Data Process Shape*.  
 
 Alternatively you can install the `.jar` file into your Account and create a [Custom Library](https://help.boomi.com/bundle/integration/page/c-atm-Custom_Library_components_8844439e-657e-43eb-ab44-27568c52abed.html).
+
+If you want to complile from the source and have a Java SDK and [Maven](https://maven.apache.org/) installed then you can simply clone/download this repository and run `mvn package` to produce your own `.jar` file.
