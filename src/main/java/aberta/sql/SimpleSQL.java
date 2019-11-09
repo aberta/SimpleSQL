@@ -91,6 +91,8 @@ public class SimpleSQL {
         public String getUser();
 
         public String getPassword();
+        
+        public Properties getProperties();
     }
 
     /**
@@ -105,6 +107,23 @@ public class SimpleSQL {
      */
     public static ConnectionParameters connectionParameters(final String driverClass, final String connectionString,
             final String user, final String password) {
+        
+        return connectionParameters(driverClass, connectionString, user, password, null);
+    }
+
+    /**
+     * Create a new ConnectionParameters object
+     *
+     * @param driverClass      the class name of the JDBC Driver
+     * @param connectionString the JDBC connection String
+     * @param user             optional user ID. If the user is specified the
+     *                         password must also be specified
+     * @param password         optional password
+     * @param properties       connection properties
+     * @return connection parameters
+     */
+    public static ConnectionParameters connectionParameters(final String driverClass, final String connectionString,
+            final String user, final String password, final Properties properties) {
 
         return new ConnectionParameters() {
             @Override
@@ -126,9 +145,14 @@ public class SimpleSQL {
             public String getPassword() {
                 return password;
             }
+            
+            @Override
+            public Properties getProperties() {
+                return properties;
+            }
         };
-    }
-
+    }    
+    
     /**
      * Create a new ConnectionParameters from a Java Properties File. The keys in
      * the file are: driverClass, connectionString, user and password.
@@ -159,11 +183,22 @@ public class SimpleSQL {
         Properties props = new Properties();
         try {
             props.load(new FileInputStream(propertiesFile));
-            return connectionParameters(props.getProperty("driverClass"), props.getProperty("connectionString"),
-                    props.getProperty("user"), props.getProperty("password"));
+            
+            String driverClass = props.getProperty("driverClass");
+            String connectionString = props.getProperty("connectionString");
+            String user = props.getProperty("user");
+            String password = props.getProperty("password");
+            
+            props.remove("driverClass");
+            props.remove("connectionString");
+            props.remove("user");
+            props.remove("password");
+            
+            return connectionParameters(driverClass, connectionString, user, password, props);
+            
         } catch (IOException ex) {
             throw new RuntimeException("Failed to get database connection parameters from properties file "
-                    + propertiesFile.getAbsolutePath());
+                    + propertiesFile.getAbsolutePath(), ex);
         }
     }
 
@@ -299,7 +334,7 @@ public class SimpleSQL {
 
                 } catch (Exception ex) {
                     rollbackRequired = true;
-                    throw new RuntimeException(ex);
+                    throw new RuntimeException("query or processing failed", ex);
                 } finally {
                     close((ResultSet) rs);
                 }
@@ -308,7 +343,7 @@ public class SimpleSQL {
             }
         } catch (SQLException | RuntimeException ex) {
             rollbackRequired = true;
-            throw new RuntimeException(ex);
+            throw new RuntimeException("query failed", ex);
         } finally {
             close((Connection) c, rollbackRequired);
         }
@@ -353,8 +388,14 @@ public class SimpleSQL {
         Connection conn = null;
         try {
             Class.forName(className);
-            conn = anyEmpty(user, password) ? DriverManager.getConnection(connection)
-                    : DriverManager.getConnection(connection, user, password);
+            
+            Properties props = params.getProperties();
+            if (!anyEmpty(user, password)) {
+                props.setProperty("user", user);
+                props.setProperty("password", password);
+            }
+            
+            conn = DriverManager.getConnection(connection, props);
             conn.setAutoCommit(false);
 
             return conn;
@@ -389,7 +430,7 @@ public class SimpleSQL {
             return ps;
         } catch (Exception ex) {
             close(ps);
-            throw new RuntimeException(ex);
+            throw new RuntimeException("prepareStatement failed", ex);
         }
     }
 
