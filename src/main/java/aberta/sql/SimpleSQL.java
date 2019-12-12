@@ -39,15 +39,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Perform simple database queries without having to deal with the intricacies
  * of JDBC.
- * 
+ *
  * For usage see
  * <a href="https://github.com/aberta/SimpleSQL" target="_blank">README in
  * Github</a>
- * 
+ *
  * @author Chris Hopkins, Aberta Ltd.
  */
 public class SimpleSQL {
@@ -60,10 +62,10 @@ public class SimpleSQL {
         /**
          * Process a record that has been fetched from the database.
          *
-         * @param row the columns and their values. The entries are retrieved in the
-         *            order that the columns returned from the database
-         * @return true to continue processing. Return false to stop fetching more
-         *         records from the database
+         * @param row the columns and their values. The entries are retrieved in
+         * the order that the columns returned from the database
+         * @return true to continue processing. Return false to stop fetching
+         * more records from the database
          */
         public boolean process(Map<String, Object> row);
     }
@@ -77,7 +79,8 @@ public class SimpleSQL {
          * Updates a record that has been fetched from the database
          *
          * @param row the record fetched from the database
-         * @return true to update the record or false to do no updates to the record
+         * @return true to update the record or false to do no updates to the
+         * record
          */
         public boolean update(Map<String, Object> row);
     }
@@ -91,39 +94,43 @@ public class SimpleSQL {
         public String getUser();
 
         public String getPassword();
-        
+
         public Properties getProperties();
     }
 
     /**
      * Create a new ConnectionParameters object
      *
-     * @param driverClass      the class name of the JDBC Driver
+     * @param driverClass the class name of the JDBC Driver
      * @param connectionString the JDBC connection String
-     * @param user             optional user ID. If the user is specified the
-     *                         password must also be specified
-     * @param password         optional password
+     * @param user optional user ID. If the user is specified the password must
+     * also be specified
+     * @param password optional password
      * @return connection parameters
      */
-    public static ConnectionParameters connectionParameters(final String driverClass, final String connectionString,
+    public static ConnectionParameters connectionParameters(
+            final String driverClass, final String connectionString,
             final String user, final String password) {
-        
-        return connectionParameters(driverClass, connectionString, user, password, null);
+
+        return connectionParameters(driverClass, connectionString, user,
+                                    password, null);
     }
 
     /**
      * Create a new ConnectionParameters object
      *
-     * @param driverClass      the class name of the JDBC Driver
+     * @param driverClass the class name of the JDBC Driver
      * @param connectionString the JDBC connection String
-     * @param user             optional user ID. If the user is specified the
-     *                         password must also be specified
-     * @param password         optional password
-     * @param properties       connection properties
+     * @param user optional user ID. If the user is specified the password must
+     * also be specified
+     * @param password optional password
+     * @param properties connection properties
      * @return connection parameters
      */
-    public static ConnectionParameters connectionParameters(final String driverClass, final String connectionString,
-            final String user, final String password, final Properties properties) {
+    public static ConnectionParameters connectionParameters(
+            final String driverClass, final String connectionString,
+            final String user, final String password,
+            final Properties properties) {
 
         return new ConnectionParameters() {
             @Override
@@ -145,59 +152,64 @@ public class SimpleSQL {
             public String getPassword() {
                 return password;
             }
-            
+
             @Override
             public Properties getProperties() {
                 return properties;
             }
         };
-    }    
-    
+    }
+
     /**
-     * Create a new ConnectionParameters from a Java Properties File. The keys in
-     * the file are: driverClass, connectionString, user and password.
+     * Create a new ConnectionParameters from a Java Properties File. The keys
+     * in the file are: driverClass, connectionString, user and password.
      *
      * @param propertiesFile the relative or absolute of the properties file
      * @return connection parameters
      */
-    public static ConnectionParameters connectionParametersFromFile(String propertiesFile) {
+    public static ConnectionParameters connectionParametersFromFile(
+            String propertiesFile) {
         return connectionParametersFromFile(new File(propertiesFile));
     }
 
     /**
-     * Create a new ConnectionParameters from a Java Properties File. The keys in
-     * the file are: driverClass, connectionString, user and password.
+     * Create a new ConnectionParameters from a Java Properties File. The keys
+     * in the file are: driverClass, connectionString, user and password.
      *
      * @param propertiesFile the file containing the keys above.
      * @return connection parameters
      */
-    public static ConnectionParameters connectionParametersFromFile(File propertiesFile) {
+    public static ConnectionParameters connectionParametersFromFile(
+            File propertiesFile) {
 
         if (propertiesFile == null) {
             throw new RuntimeException("No Properties file specified");
         }
         if (!propertiesFile.exists()) {
-            throw new RuntimeException("Properties file '" + propertiesFile.getAbsolutePath() + "' does not exist");
+            throw new RuntimeException("Properties file '" + propertiesFile.
+                    getAbsolutePath() + "' does not exist");
         }
 
         Properties props = new Properties();
         try {
             props.load(new FileInputStream(propertiesFile));
-            
+
             String driverClass = props.getProperty("driverClass");
             String connectionString = props.getProperty("connectionString");
             String user = props.getProperty("user");
             String password = props.getProperty("password");
-            
+
             props.remove("driverClass");
             props.remove("connectionString");
             props.remove("user");
             props.remove("password");
-            
-            return connectionParameters(driverClass, connectionString, user, password, props);
-            
+
+            return connectionParameters(driverClass, connectionString, user,
+                                        password, props);
+
         } catch (IOException ex) {
-            throw new RuntimeException("Failed to get database connection parameters from properties file "
+            throw new RuntimeException(
+                    "Failed to get database connection parameters from properties file "
                     + propertiesFile.getAbsolutePath(), ex);
         }
     }
@@ -205,30 +217,33 @@ public class SimpleSQL {
     /**
      * Makes a connection to the database, run the SQL and return the first row
      *
-     * @param connectionParams the connection parameters to connect to the database.
-     * @param sql              the SQL SELECT query to run to fetch the data.
-     * @param params           an optional list of parameters to substitute for "?"
-     *                         in the SQL
-     * @return a Map representing the fetched row or null if no row was found. The
-     *         entries will be returned in the order that the columns in the result
+     * @param connectionParams the connection parameters to connect to the
+     * database.
+     * @param sql the SQL SELECT query to run to fetch the data.
+     * @param params an optional list of parameters to substitute for "?" in the
+     * SQL
+     * @return a Map representing the fetched row or null if no row was found.
+     * The entries will be returned in the order that the columns in the result
      */
-    public static Map<String, Object> queryFirst(ConnectionParameters connectionParams, String sql,
+    public static Map<String, Object> queryFirst(
+            ConnectionParameters connectionParams, String sql,
             List<Object> params) {
         return queryFirstWithUpdater(connectionParams, sql, params, null);
     }
 
-    private static Map<String, Object> queryFirstWithUpdater(ConnectionParameters connectionParams, String sql,
+    private static Map<String, Object> queryFirstWithUpdater(
+            ConnectionParameters connectionParams, String sql,
             List<Object> params, RowUpdater updater) {
 
         final List<Map<String, Object>> rows = new ArrayList<>();
 
         executeQuery(connectionParams, sql, params, new RowProcessor() {
-            @Override
-            public boolean process(Map<String, Object> row) {
-                rows.add(row);
-                return false;
-            }
-        }, updater);
+                 @Override
+                 public boolean process(Map<String, Object> row) {
+                     rows.add(row);
+                     return false;
+                 }
+             }, updater);
 
         if (isEmpty(rows)) {
             return null;
@@ -238,49 +253,54 @@ public class SimpleSQL {
     }
 
     /**
-     * Makes a connection to the database, run the SQL and return all the rows in a
-     * list. Do not use this method of the SQL could potentially return a large
-     * number of rows.
+     * Makes a connection to the database, run the SQL and return all the rows
+     * in a list. Do not use this method if the SQL could potentially return a
+     * large number of rows.
      *
-     * @param connectionParams the connection parameters to connect to the database.
-     * @param sql              the SQL SELECT query to run to fetch the data.
-     * @param params           an optional list of parameters to substitute for "?"
-     *                         in the SQL
-     * @return a List of Maps representing the fetched rows. If no rows were return
-     *         from the database then then list will be empty. Each Map will return
-     *         it's entries in the order they are returned by the database query
+     * @param connectionParams the connection parameters to connect to the
+     * database.
+     * @param sql the SQL SELECT query to run to fetch the data.
+     * @param params an optional list of parameters to substitute for "?" in the
+     * SQL
+     * @return a List of Maps representing the fetched rows. If no rows were
+     * return from the database then then list will be empty. Each Map will
+     * return it's entries in the order they are returned by the database query
      */
-    public static List<Map<String, Object>> queryAsList(ConnectionParameters connectionParams, String sql,
+    public static List<Map<String, Object>> queryAsList(
+            ConnectionParameters connectionParams, String sql,
             List<Object> params) {
 
         final List<Map<String, Object>> rows = new ArrayList<>();
         query(connectionParams, sql, params, new RowProcessor() {
-            @Override
-            public boolean process(Map<String, Object> row) {
-                rows.add(row);
-                return true;
-            }
-        });
+          @Override
+          public boolean process(Map<String, Object> row) {
+              rows.add(row);
+              return true;
+          }
+      });
         return rows;
     }
 
     /**
      * Makes a connection to the database, run the SQL and processes each row
      *
-     * @param connectionParams the connection parameters to connect to the database.
-     * @param sql              the SQL SELECT query to run to fetch the data.
-     * @param params           an optional list of parameters to substitute for "?"
-     *                         in the SQL
-     * @param processor        the processor for each row. The process should return
-     *                         true to continue fetching data
+     * @param connectionParams the connection parameters to connect to the
+     * database.
+     * @param sql the SQL SELECT query to run to fetch the data.
+     * @param params an optional list of parameters to substitute for "?" in the
+     * SQL
+     * @param processor the processor for each row. The process should return
+     * true to continue fetching data
      */
-    public static void query(ConnectionParameters connectionParams, String sql, List<Object> params,
-            RowProcessor processor) {
+    public static void query(ConnectionParameters connectionParams, String sql,
+                             List<Object> params,
+                             RowProcessor processor) {
         executeQuery(connectionParams, sql, params, processor, null);
     }
 
-    private static void executeQuery(ConnectionParameters connectionParams, String sql, List<Object> params,
-            RowProcessor processor, RowUpdater updater) {
+    private static void executeQuery(ConnectionParameters connectionParams,
+                                     String sql, List<Object> params,
+                                     RowProcessor processor, RowUpdater updater) {
 
         Connection c = getConnection(connectionParams);
 
@@ -315,9 +335,11 @@ public class SimpleSQL {
                             Boolean update = updater.update(row);
                             if (update) {
                                 boolean differences = false;
-                                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                                for (Map.Entry<String, Object> entry : row.
+                                        entrySet()) {
                                     if (entryDifferent(entry, original)) {
-                                        rs.updateObject(entry.getKey(), entry.getValue());
+                                        rs.updateObject(entry.getKey(), entry.
+                                                        getValue());
                                         differences = true;
                                         rollbackRequired = false;
                                     }
@@ -329,7 +351,8 @@ public class SimpleSQL {
                             }
                         }
 
-                        processMore = (processor != null) ? processor.process(row) : true;
+                        processMore = (processor != null) ? processor.process(
+                                row) : true;
                     }
 
                 } catch (Exception ex) {
@@ -343,31 +366,102 @@ public class SimpleSQL {
             }
         } catch (SQLException | RuntimeException ex) {
             rollbackRequired = true;
-            throw new RuntimeException("query failed", ex);
+            throw new RuntimeException("Failed to execute SQL: " + sql, ex);
         } finally {
             close((Connection) c, rollbackRequired);
         }
     }
 
     /**
-     * Fetches the first row for the given SQL statement and calls the RowUpdater to
-     * manipulate the row. If any changes are done, and if the RowUpdater returns
-     * true the the row is updated.
+     * Fetches the first row for the given SQL statement and calls the
+     * RowUpdater to manipulate the row. If any changes are done, and if the
+     * RowUpdater returns true the the row is updated.
      *
-     * @param connectionParams the connection parameters to connect to the database.
-     * @param sql              the SQL SELECT query to run to fetch the data.
-     * @param params           an optional list of parameters to substitute for "?"
-     *                         in the SQL
-     * @param updater          code that will manipulate the fetched row.
+     * @param connectionParams the connection parameters to connect to the
+     * database.
+     * @param sql the SQL SELECT query to run to fetch the data.
+     * @param params an optional list of parameters to substitute for "?" in the
+     * SQL
+     * @param updater code that will manipulate the fetched row.
      * @return the updated row
      */
-    public static Map<String, Object> fetchForUpdate(ConnectionParameters connectionParams, String sql,
+    public static Map<String, Object> fetchForUpdate(
+            ConnectionParameters connectionParams, String sql,
             List<Object> params, RowUpdater updater) {
 
         if (updater != null) {
             return queryFirstWithUpdater(connectionParams, sql, params, updater);
         }
         return queryFirst(connectionParams, sql, params);
+    }
+
+    /**
+     * 
+     * @param connectionParams the connection parameters to connect to the
+     * database.
+     * @param sql
+     * @param listOfParameters
+     * @return the total count of updated records
+     */
+    public static int batchUpdate(ConnectionParameters connectionParams, String sql, Collection<List<Object>> listOfParameters) {
+        Connection c = getConnection(connectionParams);
+        boolean committed = false;
+        try {
+            PreparedStatement ps = c.prepareStatement(sql);
+
+            for (List<Object> params: listOfParameters) {
+                int i = 1;
+                for (Object param : params) {
+                    ps.setObject(i++, param);
+                }
+                ps.addBatch();
+            }
+            
+            int updateCount = 0;
+            int[] counts = ps.executeBatch();
+            for (int count: counts) {
+                updateCount += count;
+            }
+
+            c.commit();
+            committed = true;
+                        
+            try {
+                ps.close();
+            } catch (SQLException ex) {
+                Logger.getLogger(SimpleSQL.class.getName()).
+                        log(Level.SEVERE, null, ex);
+            }
+            
+            return updateCount;
+
+        } catch (SQLException ex) {
+            Logger.getLogger(SimpleSQL.class.getName()).log(Level.SEVERE, null,
+                                                            ex);
+            try {
+                c.rollback();
+            } catch (SQLException ex1) {
+                Logger.getLogger(SimpleSQL.class.getName()).
+                        log(Level.SEVERE, null, ex1);
+            }
+            throw new RuntimeException("Update failed: " + sql, ex);
+
+        } finally {
+            if (!committed) {
+                try {
+                    c.rollback();
+                } catch (SQLException ex) {
+                    Logger.getLogger(SimpleSQL.class.getName()).
+                            log(Level.SEVERE, null, ex);
+                }
+            }
+            try {
+                c.close();
+            } catch (SQLException ex) {
+                Logger.getLogger(SimpleSQL.class.getName()).
+                        log(Level.SEVERE, null, ex);
+            }
+        }
     }
 
     private static Connection getConnection(ConnectionParameters params) {
@@ -388,13 +482,13 @@ public class SimpleSQL {
         Connection conn = null;
         try {
             Class.forName(className);
-            
+
             Properties props = params.getProperties();
             if (!anyEmpty(user, password)) {
                 props.setProperty("user", user);
                 props.setProperty("password", password);
             }
-            
+
             conn = DriverManager.getConnection(connection, props);
             conn.setAutoCommit(false);
 
@@ -403,8 +497,11 @@ public class SimpleSQL {
         } catch (SQLException | ClassNotFoundException ex) {
             close(conn);
             StringBuilder sb = new StringBuilder();
-            sb.append("Failed to get database connection with JDBC driver class '").append(className)
-                    .append("', JDBC connection string '").append(connection).append("'");
+            sb.append(
+                    "Failed to get database connection with JDBC driver class '").
+                    append(className)
+                    .append("', JDBC connection string '").append(connection).
+                    append("'");
             if (!anyEmpty(user, password)) {
                 sb.append(" and user '").append(user).append("'");
             }
@@ -412,14 +509,17 @@ public class SimpleSQL {
         }
     }
 
-    private static PreparedStatement prepareStatement(Connection c, String sql, List<Object> params,
-            boolean forUpdate) {
+    private static PreparedStatement prepareStatement(Connection c, String sql,
+                                                      List<Object> params,
+                                                      boolean forUpdate) {
         PreparedStatement ps = null;
         try {
             if (!forUpdate) {
-                ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+                ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY,
+                                        ResultSet.CONCUR_READ_ONLY);
             } else {
-                ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE);
+                ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY,
+                                        ResultSet.CONCUR_UPDATABLE);
             }
             if (params != null) {
                 int i = 1;
@@ -493,7 +593,8 @@ public class SimpleSQL {
         return false;
     }
 
-    private static boolean entryDifferent(Map.Entry<String, Object> entry, Map<String, Object> map) {
+    private static boolean entryDifferent(Map.Entry<String, Object> entry,
+                                          Map<String, Object> map) {
         if (entry == null) {
             return false;
         }
