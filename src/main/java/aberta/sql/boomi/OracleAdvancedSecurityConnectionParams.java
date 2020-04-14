@@ -107,10 +107,10 @@ public class OracleAdvancedSecurityConnectionParams implements
 
         try {
             Properties props = (Properties) getProperties.invoke(dataContext,
-                                                                 name);
+                                                                 documentNumber);
             return props.getProperty(name, "");
         } catch (IllegalAccessException | IllegalArgumentException |
-                 InvocationTargetException ex) {
+                 InvocationTargetException | NullPointerException ex) {
             throw new RuntimeException(
                     "Failed to get dynamic document property " + name, ex);
         }
