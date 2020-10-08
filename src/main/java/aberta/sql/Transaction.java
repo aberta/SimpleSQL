@@ -262,7 +262,6 @@ public class Transaction {
         numBatchUpdateCalls++;
 
         try {
-            numPreparedStatementCalls++;
             long start = System.nanoTime();
 
             try ( PreparedStatement ps = prepareStatement(conn, sql, false)) {
@@ -384,10 +383,10 @@ public class Transaction {
         }
     }
 
-    private static PreparedStatement prepareStatement(Connection c, String sql,
+    private PreparedStatement prepareStatement(Connection c, String sql,
             boolean forUpdate) {
         PreparedStatement ps = null;
-        try {
+        try {            
             if (!forUpdate) {
                 ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY,
                         ResultSet.CONCUR_READ_ONLY);
@@ -395,6 +394,8 @@ public class Transaction {
                 ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY,
                         ResultSet.CONCUR_UPDATABLE);
             }
+            numPreparedStatementCalls++;
+            
             return ps;
         } catch (SQLException ex) {
             if (ps != null) {
