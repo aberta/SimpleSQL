@@ -49,6 +49,7 @@ import java.util.logging.Logger;
 public class Transaction {
 
     private Connection conn;
+    private boolean uncommitedChanges = false;
 
     public long connectionTimeNS = 0;
     public long commitTimeNS = 0;
@@ -76,7 +77,8 @@ public class Transaction {
         }
     }
 
-    public static Map<String, Object> withTransaction(ConnectionParameters params, Transaction.Processor tp) throws SQLException {
+    @SuppressWarnings("UseSpecificCatch")
+    public static Map<String, Object> withTransaction(ConnectionParameters params, Transaction.Processor tp) {
         if (params == null) {
             throw new IllegalArgumentException("no parameters");
         }
@@ -100,10 +102,7 @@ public class Transaction {
                     txn.commit();
                 } else {
                     txn.rollback();
-                }
-            } catch (SQLException ex) {
-                Logger.getLogger(SimpleSQL.class.getName()).
-                        log(Level.SEVERE, null, ex);
+                }            
             } finally {
                 try {
                     txn.rollback();
@@ -127,10 +126,13 @@ public class Transaction {
 
             return timings;
 
-        } catch (SQLException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(SimpleSQL.class.getName()).
                     log(Level.SEVERE, null, ex);
-            throw ex;
+            if (ex instanceof RuntimeException) {
+                throw (RuntimeException)ex;
+            }
+            throw new RuntimeException(ex);
         } finally {
             try {
                 conn.close();
@@ -142,24 +144,18 @@ public class Transaction {
     }
 
     public void commit() throws SQLException {
-        if (conn != null) {
-            try {
-                long start = System.nanoTime();
-                conn.commit();
-                commitTimeNS += Math.abs(System.nanoTime() - start);
-            } finally {
-                conn = null;
-            }
+        if (conn != null && uncommitedChanges) {
+            long start = System.nanoTime();
+            conn.commit();
+            commitTimeNS += Math.abs(System.nanoTime() - start);
+            uncommitedChanges = false;
         }
     }
 
     public void rollback() throws SQLException {
-        if (conn != null) {
-            try {
-                conn.commit();
-            } finally {
-                conn = null;
-            }
+        if (conn != null && uncommitedChanges) {
+            conn.rollback();
+            uncommitedChanges = false;
         }
     }
 
@@ -285,6 +281,8 @@ public class Transaction {
                 start = System.nanoTime();
                 int[] counts = ps.executeBatch();
                 batchUpdateTimeNS += Math.abs(System.nanoTime() - start);
+    
+                uncommitedChanges = true;
 
                 for (int count : counts) {
                     updateCount += count;
@@ -360,6 +358,8 @@ public class Transaction {
                                     start = System.nanoTime();
                                     rs.updateRow();
                                     updateRowTimeNS += Math.abs(System.nanoTime() - start);
+
+                                    uncommitedChanges = true;                                    
                                 }
                             }
                         }
