@@ -24,7 +24,7 @@
     
     <groupId>aberta</groupId>
     <artifactId>simplesql</artifactId>
-    <version>1.27</version>
+    <version>1.28</version>
 
     <name>SimpleSQL</name>
     <url>https://github.com/aberta/SimpleSQL</url>

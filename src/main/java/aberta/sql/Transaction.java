@@ -27,9 +27,11 @@ import aberta.sql.SimpleSQL.ConnectionParameters;
 import aberta.sql.SimpleSQL.RowProcessor;
 import aberta.sql.SimpleSQL.RowUpdater;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -262,6 +264,8 @@ public class Transaction {
 
         numBatchUpdateCalls++;
 
+        List<Blob> blobs = new ArrayList<>();
+        
         try {
             long start = System.nanoTime();
 
@@ -273,7 +277,20 @@ public class Transaction {
                     int i = 1;
                     for (Object param : params) {
                         if (param instanceof InputStream) {
-                            ps.setBlob(i++, (InputStream) param);
+                            InputStream in = new BufferedInputStream((InputStream) param);
+                            Blob blob = conn.createBlob();
+                            blobs.add(blob);
+                            try (final OutputStream out = new BufferedOutputStream(blob.setBinaryStream(1L))) {
+                                int bytesRead;
+                                byte[] buffer = new byte[64 * 1024];
+                                while ((bytesRead = in.read(buffer)) != -1) {
+                                    if (bytesRead > 0) {
+                                        out.write(buffer, 0, bytesRead);
+                                    }
+                                }
+                            }                            
+                            
+                            ps.setBlob(i++, blob);
                         } else {
                             ps.setObject(i++, param);
                         }
@@ -298,11 +315,19 @@ public class Transaction {
                 }
                 return updateCount;
             }
-        } catch (SQLException ex) {
+        } catch (SQLException | IOException ex) {
             Logger.getLogger(SimpleSQL.class.getName()).log(Level.SEVERE, null,
                     ex);
             throw new RuntimeException("Update failed: " + sql, ex);
 
+        } finally {
+            for (Blob b: blobs) {
+                try {
+                    b.free();
+                } catch (SQLException ex) {
+                    Logger.getLogger(Transaction.class.getName()).log(Level.SEVERE, "Failed to free Blob", ex);
+                }
+            }
         }
     }
 
