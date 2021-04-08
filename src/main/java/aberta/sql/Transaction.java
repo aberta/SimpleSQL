@@ -273,7 +273,7 @@ public class Transaction {
                     int i = 1;
                     for (Object param : params) {
                         if (param instanceof InputStream) {
-                            ps.setBinaryStream(i++, (InputStream) param);
+                            ps.setBlob(i++, (InputStream) param);
                         } else {
                             ps.setObject(i++, param);
                         }
