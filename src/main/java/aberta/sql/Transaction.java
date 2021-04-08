@@ -72,6 +72,8 @@ public class Transaction {
     public long numUpdateRowCalls = 0;
     public long numPreparedStatementCalls = 0;
 
+    private final List<Blob> blobs;
+
     public interface Processor {
 
         public boolean process(Transaction txn);
@@ -82,6 +84,7 @@ public class Transaction {
         if (conn == null) {
             throw new IllegalArgumentException("no connection");
         }
+        blobs = new ArrayList<>();
     }
 
     @SuppressWarnings("UseSpecificCatch")
@@ -101,43 +104,52 @@ public class Transaction {
 
         try {
             Transaction txn = new Transaction(conn);
-            txn.connectionTimeNS = Math.abs(end - start);
-
             try {
-                Boolean commit = tp.process(txn);
-                if (commit) {
-                    txn.commit();
-                } else {
-                    txn.rollback();
-                }            
-            } finally {
+                txn.connectionTimeNS = Math.abs(end - start);
+
                 try {
-                    txn.rollback();
-                } catch (SQLException ex) {
+                    Boolean commit = tp.process(txn);
+                    if (commit) {
+                        txn.commit();
+                    } else {
+                        txn.rollback();
+                    }
+                } finally {
+                    try {
+                        txn.rollback();
+                    } catch (SQLException ex) {
+                    }
+                }
+
+                timings.put("connectionTime", ((double) txn.connectionTimeNS) / (double) 1000000.0);
+                timings.put("commitTime", ((double) txn.commitTimeNS) / (double) 1000000.0);
+                timings.put("batchUpdateTime", ((double) txn.batchUpdateTimeNS) / (double) 1000000.0);
+                timings.put("addBatchTime", ((double) txn.addBatchTimeNS) / (double) 1000000.0);
+                timings.put("executeQueryTime", ((double) txn.executeQueryTimeNS) / (double) 1000000.0);
+                timings.put("updateRowTime", ((double) txn.updateRowTimeNS) / (double) 1000000.0);
+                timings.put("preparedStatementTime", ((double) txn.preparedStatementTimeNS) / (double) 1000000.0);
+
+                timings.put("numBatchUpdateCalls", txn.numBatchUpdateCalls);
+                timings.put("numAddBatchCalls", txn.numAddBatchCalls);
+                timings.put("numExecuteQueryCalls", txn.numExecuteQueryCalls);
+                timings.put("numUpdateRowCalls", txn.numUpdateRowCalls);
+                timings.put("numPreparedStatementCalls", txn.numPreparedStatementCalls);
+            } finally {
+                for (Blob b: txn.blobs) {
+                    try {
+                        b.free();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Transaction.class.getName()).log(Level.SEVERE, "Failed to free Blob", ex);
+                    }
                 }
             }
-
-            timings.put("connectionTime", ((double) txn.connectionTimeNS) / (double) 1000000.0);
-            timings.put("commitTime", ((double) txn.commitTimeNS) / (double) 1000000.0);
-            timings.put("batchUpdateTime", ((double) txn.batchUpdateTimeNS) / (double) 1000000.0);
-            timings.put("addBatchTime", ((double) txn.addBatchTimeNS) / (double) 1000000.0);
-            timings.put("executeQueryTime", ((double) txn.executeQueryTimeNS) / (double) 1000000.0);
-            timings.put("updateRowTime", ((double) txn.updateRowTimeNS) / (double) 1000000.0);
-            timings.put("preparedStatementTime", ((double) txn.preparedStatementTimeNS) / (double) 1000000.0);
-
-            timings.put("numBatchUpdateCalls", txn.numBatchUpdateCalls);
-            timings.put("numAddBatchCalls", txn.numAddBatchCalls);
-            timings.put("numExecuteQueryCalls", txn.numExecuteQueryCalls);
-            timings.put("numUpdateRowCalls", txn.numUpdateRowCalls);
-            timings.put("numPreparedStatementCalls", txn.numPreparedStatementCalls);
-
             return timings;
 
         } catch (Exception ex) {
             Logger.getLogger(SimpleSQL.class.getName()).
-                    log(Level.SEVERE, null, ex);
+                log(Level.SEVERE, null, ex);
             if (ex instanceof RuntimeException) {
-                throw (RuntimeException)ex;
+                throw (RuntimeException) ex;
             }
             throw new RuntimeException(ex);
         } finally {
@@ -145,7 +157,7 @@ public class Transaction {
                 conn.close();
             } catch (SQLException ex) {
                 Logger.getLogger(SimpleSQL.class.getName()).
-                        log(Level.WARNING, null, ex);
+                    log(Level.WARNING, null, ex);
             }
         }
     }
@@ -264,8 +276,6 @@ public class Transaction {
 
         numBatchUpdateCalls++;
 
-        List<Blob> blobs = new ArrayList<>();
-        
         try {
             long start = System.nanoTime();
 
@@ -288,8 +298,8 @@ public class Transaction {
                                         out.write(buffer, 0, bytesRead);
                                     }
                                 }
-                            }                            
-                            
+                            }
+
                             ps.setBlob(i++, blob);
                         } else {
                             ps.setObject(i++, param);
@@ -307,7 +317,7 @@ public class Transaction {
                 start = System.nanoTime();
                 int[] counts = ps.executeBatch();
                 batchUpdateTimeNS += Math.abs(System.nanoTime() - start);
-    
+
                 uncommitedChanges = true;
 
                 for (int count : counts) {
@@ -317,23 +327,14 @@ public class Transaction {
             }
         } catch (SQLException | IOException ex) {
             Logger.getLogger(SimpleSQL.class.getName()).log(Level.SEVERE, null,
-                    ex);
+                ex);
             throw new RuntimeException("Update failed: " + sql, ex);
-
-        } finally {
-            for (Blob b: blobs) {
-                try {
-                    b.free();
-                } catch (SQLException ex) {
-                    Logger.getLogger(Transaction.class.getName()).log(Level.SEVERE, "Failed to free Blob", ex);
-                }
-            }
         }
     }
 
     @SuppressWarnings("null")
     private void executeQuery(String sql, List<Object> params,
-            RowProcessor processor, RowUpdater updater) {
+        RowProcessor processor, RowUpdater updater) {
 
         numExecuteQueryCalls++;
 
@@ -368,26 +369,28 @@ public class Transaction {
                     while (rs.next() && Boolean.TRUE.equals(processMore)) {
                         Map<String, Object> row = new LinkedHashMap<>();
                         for (int i = 1; i <= md.getColumnCount(); i++) {
-                            
-                            Object columnObj = rs.getObject(i);      
-                            if (columnObj instanceof java.sql.Blob ||
-                                md.getColumnType(i) == java.sql.Types.BLOB ||
-                                columnObj.getClass().getName().equals("oracle.sql.BLOB")) {
-                                
+
+                            Object columnObj = rs.getObject(i);
+                            if (columnObj instanceof java.sql.Blob
+                                || md.getColumnType(i) == java.sql.Types.BLOB
+                                || columnObj.getClass().getName().equals("oracle.sql.BLOB")) {
+
                                 Blob blob = rs.getBlob(i);
-                                BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
-                                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                                byte[] buffer = new byte[64 * 1024];
-                                int bytesRead = 0;
-                                    
-                                while (bytesRead != -1) {
-                                    bytesRead = in.read(buffer);
-                                    if (bytesRead > 0) {
-                                        out.write(buffer, 0, bytesRead);
+                                if (blob != null) {
+                                    BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
+                                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                                    byte[] buffer = new byte[64 * 1024];
+                                    int bytesRead = 0;
+
+                                    while (bytesRead != -1) {
+                                        bytesRead = in.read(buffer);
+                                        if (bytesRead > 0) {
+                                            out.write(buffer, 0, bytesRead);
+                                        }
                                     }
+
+                                    row.put(md.getColumnName(i), out.toByteArray());
                                 }
-                                                                    
-                                row.put(md.getColumnName(i), out.toByteArray());
                             } else {
                                 row.put(md.getColumnName(i), columnObj);
                             }
@@ -402,10 +405,10 @@ public class Transaction {
                             if (update) {
                                 boolean differences = false;
                                 for (Map.Entry<String, Object> entry : row.
-                                        entrySet()) {
+                                    entrySet()) {
                                     if (entryDifferent(entry, original)) {
                                         rs.updateObject(entry.getKey(), entry.
-                                                getValue());
+                                            getValue());
                                         differences = true;
                                     }
                                 }
@@ -415,7 +418,7 @@ public class Transaction {
                                     rs.updateRow();
                                     updateRowTimeNS += Math.abs(System.nanoTime() - start);
 
-                                    uncommitedChanges = true;                                    
+                                    uncommitedChanges = true;
                                 }
                             }
                         }
@@ -440,18 +443,18 @@ public class Transaction {
     }
 
     private PreparedStatement prepareStatement(Connection c, String sql,
-            boolean forUpdate) {
+        boolean forUpdate) {
         PreparedStatement ps = null;
-        try {            
+        try {
             if (!forUpdate) {
                 ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_READ_ONLY);
+                    ResultSet.CONCUR_READ_ONLY);
             } else {
                 ps = c.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_UPDATABLE);
+                    ResultSet.CONCUR_UPDATABLE);
             }
             numPreparedStatementCalls++;
-            
+
             return ps;
         } catch (SQLException ex) {
             if (ps != null) {
@@ -504,10 +507,10 @@ public class Transaction {
             }
             StringBuilder sb = new StringBuilder();
             sb.append(
-                    "Failed to get database connection with JDBC driver class '").
-                    append(className)
-                    .append("', JDBC connection string '").append(connection).
-                    append("'");
+                "Failed to get database connection with JDBC driver class '").
+                append(className)
+                .append("', JDBC connection string '").append(connection).
+                append("'");
             if (!anyEmpty(user, password)) {
                 sb.append(" and user '").append(user).append("'");
             }
@@ -538,7 +541,7 @@ public class Transaction {
     }
 
     private static boolean entryDifferent(Map.Entry<String, Object> entry,
-            Map<String, Object> map) {
+        Map<String, Object> map) {
         if (entry == null) {
             return false;
         }
