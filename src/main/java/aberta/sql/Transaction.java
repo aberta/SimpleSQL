@@ -287,17 +287,28 @@ public class Transaction {
                     int i = 1;
                     for (Object param : params) {
                         if (param instanceof InputStream) {
+                            
                             InputStream in = new BufferedInputStream((InputStream) param);
                             Blob blob = conn.createBlob();
                             blobs.add(blob);
+                            
+                            long length = 0;
+                            
                             try (final OutputStream out = new BufferedOutputStream(blob.setBinaryStream(1L))) {
                                 int bytesRead;
                                 byte[] buffer = new byte[64 * 1024];
                                 while ((bytesRead = in.read(buffer)) != -1) {
                                     if (bytesRead > 0) {
                                         out.write(buffer, 0, bytesRead);
+                                        length += bytesRead;
                                     }
                                 }
+                            }
+                            if (length == 0L) {
+                                throw new RuntimeException("InputStream has no content to write to Blob");
+                            }
+                            if (blob.length() == 0L) {
+                                throw new RuntimeException("Blob has zero length");
                             }
 
                             ps.setBlob(i++, blob);
