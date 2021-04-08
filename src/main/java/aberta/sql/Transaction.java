@@ -26,6 +26,7 @@ package aberta.sql;
 import aberta.sql.SimpleSQL.ConnectionParameters;
 import aberta.sql.SimpleSQL.RowProcessor;
 import aberta.sql.SimpleSQL.RowUpdater;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -267,7 +268,11 @@ public class Transaction {
                 for (List<Object> params : listOfParameters) {
                     int i = 1;
                     for (Object param : params) {
-                        ps.setObject(i++, param);
+                        if (param instanceof InputStream) {
+                            ps.setBinaryStream(i++, (InputStream) param);
+                        } else {
+                            ps.setObject(i++, param);
+                        }
                     }
 
                     numAddBatchCalls++;
