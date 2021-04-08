@@ -344,8 +344,10 @@ public class Transaction {
                         Map<String, Object> row = new LinkedHashMap<>();
                         for (int i = 1; i <= md.getColumnCount(); i++) {
                             
-                            Object columnObj = rs.getObject(i);                            
-                            if (columnObj instanceof java.sql.Blob) {
+                            Object columnObj = rs.getObject(i);      
+                            if (columnObj instanceof java.sql.Blob ||
+                                md.getColumnType(i) == java.sql.Types.BLOB ||
+                                columnObj.getClass().getName().equals("oracle.sql.BLOB")) {
                                 
                                 Blob blob = rs.getBlob(i);
                                 BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
