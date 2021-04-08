@@ -26,7 +26,11 @@ package aberta.sql;
 import aberta.sql.SimpleSQL.ConnectionParameters;
 import aberta.sql.SimpleSQL.RowProcessor;
 import aberta.sql.SimpleSQL.RowUpdater;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -339,7 +343,25 @@ public class Transaction {
                     while (rs.next() && Boolean.TRUE.equals(processMore)) {
                         Map<String, Object> row = new LinkedHashMap<>();
                         for (int i = 1; i <= md.getColumnCount(); i++) {
-                            row.put(md.getColumnName(i), rs.getObject(i));
+                            
+                            if (md.getColumnType(i) == java.sql.Types.BLOB) {
+                                Blob blob = rs.getBlob(i);
+                                BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
+                                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                                byte[] buffer = new byte[64 * 1024];
+                                int bytesRead = 0;
+                                    
+                                while (bytesRead != -1) {
+                                    bytesRead = in.read(buffer);
+                                    if (bytesRead > 0) {
+                                        out.write(buffer, 0, bytesRead);
+                                    }
+                                }
+                                                                    
+                                row.put(md.getColumnName(i), out.toByteArray());
+                            } else {
+                                row.put(md.getColumnName(i), rs.getObject(i));
+                            }
                         }
 
                         if (updater != null) {
@@ -383,7 +405,7 @@ public class Transaction {
                     }
                 }
             }
-        } catch (SQLException | RuntimeException ex) {
+        } catch (SQLException | IOException | RuntimeException ex) {
             throw new RuntimeException("executeQuery failed for SQL: " + sql, ex);
         }
     }
