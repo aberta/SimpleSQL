@@ -344,7 +344,9 @@ public class Transaction {
                         Map<String, Object> row = new LinkedHashMap<>();
                         for (int i = 1; i <= md.getColumnCount(); i++) {
                             
-                            if (md.getColumnType(i) == java.sql.Types.BLOB) {
+                            Object columnObj = rs.getObject(i);                            
+                            if (columnObj instanceof java.sql.Blob) {
+                                
                                 Blob blob = rs.getBlob(i);
                                 BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
                                 ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -360,7 +362,7 @@ public class Transaction {
                                                                     
                                 row.put(md.getColumnName(i), out.toByteArray());
                             } else {
-                                row.put(md.getColumnName(i), rs.getObject(i));
+                                row.put(md.getColumnName(i), columnObj);
                             }
                         }
 
