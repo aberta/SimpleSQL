@@ -382,28 +382,32 @@ public class Transaction {
                         for (int i = 1; i <= md.getColumnCount(); i++) {
 
                             Object columnObj = rs.getObject(i);
-                            if (columnObj instanceof java.sql.Blob
-                                || md.getColumnType(i) == java.sql.Types.BLOB
-                                || columnObj.getClass().getName().equals("oracle.sql.BLOB")) {
+                            if (columnObj != null) {
+                                if (columnObj instanceof java.sql.Blob
+                                    || md.getColumnType(i) == java.sql.Types.BLOB
+                                    || columnObj.getClass().getName().equals("oracle.sql.BLOB")) {
 
-                                Blob blob = rs.getBlob(i);
-                                if (blob != null) {
-                                    BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
-                                    ByteArrayOutputStream out = new ByteArrayOutputStream();
-                                    byte[] buffer = new byte[64 * 1024];
-                                    int bytesRead = 0;
+                                    Blob blob = rs.getBlob(i);
+                                    if (blob != null) {
+                                        BufferedInputStream in = new BufferedInputStream(blob.getBinaryStream());
+                                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                                        byte[] buffer = new byte[64 * 1024];
+                                        int bytesRead = 0;
 
-                                    while (bytesRead != -1) {
-                                        bytesRead = in.read(buffer);
-                                        if (bytesRead > 0) {
-                                            out.write(buffer, 0, bytesRead);
+                                        while (bytesRead != -1) {
+                                            bytesRead = in.read(buffer);
+                                            if (bytesRead > 0) {
+                                                out.write(buffer, 0, bytesRead);
+                                            }
                                         }
-                                    }
 
-                                    row.put(md.getColumnName(i), out.toByteArray());
+                                        row.put(md.getColumnName(i), out.toByteArray());
+                                    }
+                                } else {
+                                    row.put(md.getColumnName(i), columnObj);
                                 }
                             } else {
-                                row.put(md.getColumnName(i), columnObj);
+                                row.put(md.getColumnName(i), null);
                             }
                         }
 
